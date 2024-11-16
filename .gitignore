@@ -8,3 +8,5 @@ tests/test_eclipse
 tests/test_transit
 tests/test_emcee
 pylightcurve/*_local_*
+pylightcurve/notebooks/.*
+pylightcurve/notebooks/detrending_examples/.*
