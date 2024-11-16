@@ -383,7 +383,7 @@ class Fitting:
 
             self._postfit()
 
-        elif self.optimiser == 'emcee':=
+        elif self.optimiser == 'emcee':
 
             sys.setrecursionlimit(self.iterations)
 
