@@ -8,5 +8,4 @@ tests/test_eclipse
 tests/test_transit
 tests/test_emcee
 pylightcurve/*_local_*
-pylightcurve/notebooks/.ipynb_checkpoints
-pylightcurve/notebooks/detrending_examples/.ipynb_checkpoints
+*.ipynb_checkpoints
