@@ -9,7 +9,7 @@ import shutil
 
 from exotethys import ls_database
 
-from pylightcurve.processes.files import open_dict, save_dict, open_dict_online
+from .processes.files import open_dict, save_dict, open_dict_online
 from .errors import *
 from .__databases_setup__ import _setup_database
 

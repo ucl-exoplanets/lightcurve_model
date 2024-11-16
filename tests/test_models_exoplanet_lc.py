@@ -102,19 +102,19 @@ def test_exoplanet_lc():
 
             limb_darkening_coefficients = plc.exotethys(stellar_logg, stellar_temperature,
                                                         stellar_metallicity, photometric_filter,
-                                                        method=method, stellar_model=stellar_model)
+                                                        ldc_method=method, stellar_model=stellar_model)
 
             assert len(limb_darkening_coefficients) == 4
 
             transit = plc.transit(limb_darkening_coefficients, rp_over_rs, period, sma_over_rs, eccentricity, inclination,
-                                  periastron, mid_time, time_array, method=method)
+                                  periastron, mid_time, time_array, ldc_method=method)
 
             assert min(transit) > 0.98
             assert max(transit) == 1.0
 
             transit_integrated = plc.transit_integrated(limb_darkening_coefficients, rp_over_rs, period, sma_over_rs,
                                                         eccentricity, inclination, periastron, mid_time, time_array,
-                                                        30, max_sub_exp_time=10, method=method, precision=3)
+                                                        30, max_sub_exp_time=10, ldc_method=method, precision=3)
 
             assert min(transit_integrated) > 0.98
             assert max(transit_integrated) == 1.0
@@ -142,19 +142,19 @@ def test_exoplanet_lc():
 
     with pytest.raises(plc.PyLCError):
         plc.exotethys(stellar_logg, stellar_temperature, stellar_metallicity, 'bla',
-                      method='claret', stellar_model=stellar_model)
+                      ldc_method='claret', stellar_model=stellar_model)
 
     with pytest.raises(plc.PyLCError):
         plc.exotethys(stellar_logg, stellar_temperature, stellar_metallicity, photometric_filter,
-                      method='bla', stellar_model=stellar_model)
+                      ldc_method='bla', stellar_model=stellar_model)
 
     with pytest.raises(plc.PyLCError):
         plc.exotethys(stellar_logg, stellar_temperature, stellar_metallicity, photometric_filter,
-                      method='claret', stellar_model='bla')
+                      ldc_method='claret', stellar_model='bla')
 
     with pytest.raises(plc.PyLCError):
         plc.exotethys(stellar_logg, stellar_temperature, stellar_metallicity, photometric_filter,
-                      method='claret', stellar_model=stellar_model, wlrange=[5, 10])
+                      ldc_method='claret', stellar_model=stellar_model, wlrange=[5, 10])
 
     with pytest.raises(plc.PyLCError):
         plc.fp_over_fs(rp_over_rs, sma_over_rs, 0.2, 1.0, stellar_temperature, 'bla')
@@ -162,7 +162,7 @@ def test_exoplanet_lc():
     with pytest.raises(plc.PyLCError):
         plc.fp_over_fs(rp_over_rs, sma_over_rs, 0.2, 1.0, stellar_temperature, photometric_filter, wlrange=[5, 10])
 
-    assert len(plc.exotethys(stellar_logg, stellar_temperature, 0.1, 'JOHNSON_V', method='claret',
+    assert len(plc.exotethys(stellar_logg, stellar_temperature, 0.1, 'JOHNSON_V', ldc_method='claret',
                              stellar_model=stellar_model)) == 4
 
     assert round(plc.convert_to_bjd_tdb(ra, dec, 2458485.0, 'JD_UTC'), 7) == 2458485.0046340

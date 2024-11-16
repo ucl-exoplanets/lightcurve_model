@@ -124,7 +124,7 @@ class Observation:
                                   self.dict['original_data']['time_format']),
                 format='jd'
             ).datetime.isoformat().split('T')[0],
-            'ldc_method': planet.method,
+            'ldc_method': planet.ldc_method,
             'max_sub_exp_time': planet.max_sub_exp_time,
             'precision': planet.precision,
             'stellar_temperature': planet.stellar_temperature,
@@ -136,13 +136,11 @@ class Observation:
             'emissivity': planet.emissivity,
             'albedo': planet.albedo,
             'sma_over_rs': planet.sma_over_rs,
-            'fp_over_fs': planet.fp_over_fs(self.dict['original_data']['filter_name'],
-                                            self.dict['original_data']['wlrange'])
         }
 
         self.precision = planet.precision
         self.max_sub_exp_time = planet.max_sub_exp_time
-        self.ldc_method = planet.method
+        self.ldc_method = planet.ldc_method
 
         # convert time
 
@@ -213,6 +211,8 @@ class Observation:
         else:
             self.observation_type = 'eclipse'
             self.epoch = eclipse_epoch
+            self.dict['model_info']['fp_over_fs'] = planet.fp_over_fs(
+                self.dict['original_data']['filter_name'], self.dict['original_data']['wlrange'])
 
         self.dict['model_info']['observation_type'] = self.observation_type
         self.dict['model_info']['epoch'] = self.epoch
@@ -275,7 +275,7 @@ class Observation:
         # adjust normalisation factor
         df = max(np.median(flux) - np.min(flux), np.max(flux) - np.median(flux))
         self.initial[0] = np.median(flux)
-        self.limits1[0] = np.min(flux) - 2 * df
+        self.limits1[0] =  max(10**-10, np.min(flux) - 2 * df)
         self.limits2[0] = np.max(flux) + 2 * df
 
     def add_to_parameters_map(self, idx):
@@ -299,7 +299,7 @@ class Observation:
             ldc1, ldc2, ldc3, ldc4, r, p, a, e, i, w, mt = parameters
             return np.mean(np.reshape(
                 transit([ldc1, ldc2, ldc3, ldc4], r, p, a, e, i, w, mt, self.time_hr,
-                        method=self.ldc_method, precision=self.precision),
+                        ldc_method=self.ldc_method, precision=self.precision),
                 (self.series_length, self.time_factor)), 1)
 
         elif self.dict['model_info']['observation_type'] == 'eclipse':
@@ -342,7 +342,6 @@ class Planet:
     def __init__(self, name, ra, dec, stellar_logg, stellar_temperature, stellar_metallicity,
                  rp_over_rs, period, sma_over_rs, eccentricity, inclination,
                  periastron, mid_time,
-                 mid_time_format='BJD_TDB',
                  ldc_method='claret', max_sub_exp_time=10, precision=2,
                  asc_node=0,
                  albedo=0.15, emissivity=1.0):
@@ -362,13 +361,13 @@ class Planet:
         self.eccentricity = eccentricity
         self.inclination = inclination
         self.periastron = periastron
-        self.mid_time = convert_to_bjd_tdb(ra, dec, mid_time, mid_time_format)
+        self.mid_time = mid_time
 
         self.asc_node = asc_node
         self.albedo = albedo
         self.emissivity = emissivity
 
-        self.method = ldc_method
+        self.ldc_method = ldc_method
         self.max_sub_exp_time = max_sub_exp_time
         self.precision = precision
 
@@ -392,14 +391,14 @@ class Planet:
     # filter-dependent values
 
     def exotethys(self, filter_name, wlrange=None, stellar_model='Phoenix_2018'):
-        options = '{0}_{1}_{2}_{3}'.format(filter_name, wlrange, self.method, stellar_model)
+        options = '{0}_{1}_{2}_{3}'.format(filter_name, wlrange, self.ldc_method, stellar_model)
         if options not in self.ldcs_memory:
             self.ldcs_memory[options] = exotethys(self.stellar_logg, self.stellar_temperature, self.stellar_metallicity,
-                                                  filter_name, wlrange, self.method, stellar_model)
+                                                  filter_name, wlrange, self.ldc_method, stellar_model)
         return self.ldcs_memory[options]
 
     def add_custom_limb_darkening_coefficients(self, limb_darkening_coefficients, filter_name, wlrange, stellar_model):
-        options = '{0}_{1}_{2}_{3}'.format(filter_name, wlrange, self.method, stellar_model)
+        options = '{0}_{1}_{2}_{3}'.format(filter_name, wlrange, self.ldc_method, stellar_model)
         self.ldcs_memory[options] = limb_darkening_coefficients
 
     def fp_over_fs(self, filter_name, wlrange=None):
@@ -421,13 +420,13 @@ class Planet:
         return transit(self.exotethys(filter_name, wlrange, stellar_model),
                        self.rp_over_rs, self.period, self.sma_over_rs, self.eccentricity,
                        self.inclination, self.periastron, self.mid_time, time,
-                       self.method, self.precision)
+                       self.ldc_method, self.precision)
 
     def transit_integrated(self, time, exp_time, filter_name, wlrange=None, stellar_model='Phoenix_2018'):
         return transit_integrated(self.exotethys(filter_name, wlrange, stellar_model),
                                   self.rp_over_rs, self.period, self.sma_over_rs, self.eccentricity,
                                   self.inclination, self.periastron, self.mid_time, time, exp_time,
-                                  self.max_sub_exp_time, self.method, self.precision)
+                                  self.max_sub_exp_time, self.ldc_method, self.precision)
 
     def transit_duration(self):
         return transit_duration(self.rp_over_rs, self.period, self.sma_over_rs, self.eccentricity, self.inclination,
@@ -441,7 +440,7 @@ class Planet:
         return transit_depth(self.exotethys(filter_name, wlrange, stellar_model),
                              self.rp_over_rs, self.period, self.sma_over_rs, self.eccentricity,
                              self.inclination, self.periastron,
-                             self.method, self.precision)
+                             self.ldc_method, self.precision)
 
     def eclipse(self, time, filter_name, wlrange=None):
         return eclipse(self.fp_over_fs(filter_name, wlrange), self.rp_over_rs,
@@ -607,10 +606,10 @@ class Planet:
 
                 if len(unique_filters) > 1:
                     names.append('a_{0}::{1}'.format(ldc + 1, phot_filter))
-                    print_names.append(r'$a_{{{0}}}::{1}$'.format(ldc +1, phot_filter))
+                    print_names.append('a_{{{0}}}::{1}'.format(ldc +1, phot_filter))
                 else:
                     names.append('a_{0}'.format(ldc + 1))
-                    print_names.append(r'$a_{{{0}}}$'.format(ldc +1))
+                    print_names.append('a_{{{0}}}'.format(ldc +1))
 
                 initial.append(ldcs[ldc])
                 if fit_ldcs[ldc]:
@@ -630,7 +629,7 @@ class Planet:
         if fit_individual_rp_over_rs:
             for phot_filter in unique_filters:
                 names.append('rp_over_rs::{0}'.format(phot_filter))
-                print_names.append(r'$R_\mathrm{{p}}/R_*$::{0}'.format(phot_filter))
+                print_names.append(r'R_\mathrm{{p}}/R_*::{0}'.format(phot_filter))
                 initial.append(self.rp_over_rs)
                 limits1.append(fit_rp_over_rs_limits[0])
                 limits2.append(fit_rp_over_rs_limits[1])
@@ -648,7 +647,7 @@ class Planet:
 
         else:
             global_parameters_names = ['rp_over_rs']
-            global_parameters_print_names = [r'$R_\mathrm{p}/R_*$']
+            global_parameters_print_names = [r'R_\mathrm{p}/R_*']
             global_parameters_initial = [self.rp_over_rs]
             global_parameters_fit = [True]
             global_parameters_limits = [fit_rp_over_rs_limits]
@@ -657,7 +656,7 @@ class Planet:
         # orbital parameters
 
         global_parameters_names += ['period', 'sma_over_rs', 'eccentricity', 'inclination', 'periastron']
-        global_parameters_print_names += [r'$P$', r'$a$', r'$e$', r'$i$', r'$\omega$']
+        global_parameters_print_names += ['P', 'a', 'e', 'i', r'\omega']
         global_parameters_initial += [self.period, self.sma_over_rs, self.eccentricity, self.inclination, self.periastron]
         global_parameters_fit += [fit_period, fit_sma_over_rs, False, fit_inclination, False]
         global_parameters_limits += [fit_period_limits, fit_sma_over_rs_limits, False, fit_inclination_limits, False]
@@ -678,7 +677,7 @@ class Planet:
             new_mid_time = self.mid_time + new_epoch * self.period
 
             global_parameters_names += ['mid_time']
-            global_parameters_print_names += [r'$T_\mathrm{mid}$']
+            global_parameters_print_names += [r'T_\mathrm{mid}']
             global_parameters_initial += [new_mid_time]
             global_parameters_fit += [fit_mid_time]
             global_parameters_limits += [[new_mid_time + fit_mid_time_limits[0], new_mid_time + fit_mid_time_limits[1]]]
@@ -705,7 +704,7 @@ class Planet:
             for epoch in unique_epochs:
 
                 names.append('mid_time::{0}'.format(epoch))
-                print_names.append(r'$T_\mathrm{{mid}}$::{0}'.format(epoch))
+                print_names.append(r'T_\mathrm{{mid}}::{0}'.format(epoch))
                 initial.append(self.mid_time + epoch * self.period)
                 limits1.append(self.mid_time + epoch * self.period + fit_mid_time_limits[0])
                 limits2.append(self.mid_time + epoch * self.period + fit_mid_time_limits[1])
@@ -733,7 +732,7 @@ class Planet:
                               single_observation_full_model, initial, limits1, limits2,
                               logspace=logspace,
                               data_x_name='time', data_y_name='flux',
-                              data_x_print_name='r$t_{BJD_{TDB}}$', data_y_print_name='Relative Flux',
+                              data_x_print_name='t_{BJD_{TDB}}', data_y_print_name='Relative Flux',
                               parameters_names=names, parameters_print_names=print_names,
                               walkers=walkers, iterations=iterations, burn_in=burn_in,
                               counter=counter,
@@ -790,7 +789,7 @@ class Planet:
                           full_model, initial, limits1, limits2,
                           logspace=logspace,
                           data_x_name='time', data_y_name='flux',
-                          data_x_print_name='r$t_{BJD_{TDB}}$', data_y_print_name='Relative Flux',
+                          data_x_print_name='t_{BJD_{TDB}}', data_y_print_name='Relative Flux',
                           parameters_names=names, parameters_print_names=print_names,
                           walkers=walkers, iterations=iterations, burn_in=burn_in,
                           counter=counter,
@@ -818,7 +817,7 @@ class Planet:
             'filter_outliers': filter_outliers,
             'optimiser': optimiser,
             'data_x_name': 'time',
-            'data_x_print_name': r't_${BJD_{TDB}}$',
+            'data_x_print_name': 't_{BJD_{TDB}}',
             'data_y_name': 'flux',
             'data_y_print_name': 'Relative Flux',
             'fit_ldc1': fit_ldc1,
@@ -1109,7 +1108,7 @@ class Planet:
         if fit_individual_fp_over_fs:
             for phot_filter in unique_filters:
                 names.append('fp_over_fs::{0}'.format(phot_filter))
-                print_names.append(r'$F_\mathrm{{p}}/F_*$::{0}'.format(phot_filter))
+                print_names.append(r'F_\mathrm{{p}}/F_*::{0}'.format(phot_filter))
                 initial.append(unique_filters[phot_filter])
                 limits1.append(unique_filters[phot_filter] * fit_fp_over_fs_limits[0])
                 limits2.append(unique_filters[phot_filter] * fit_fp_over_fs_limits[1])
@@ -1120,7 +1119,7 @@ class Planet:
         else:
             phot_filter = list(unique_filters.keys())[0]
             names.append('fp_over_fs')
-            print_names.append(r'$F_\mathrm{{p}}/F_*$')
+            print_names.append(r'F_\mathrm{{p}}/F_*')
             initial.append(unique_filters[phot_filter])
             limits1.append(unique_filters[phot_filter] * fit_fp_over_fs_limits[0])
             limits2.append(unique_filters[phot_filter] * fit_fp_over_fs_limits[1])
@@ -1133,7 +1132,7 @@ class Planet:
         if fit_rp_over_rs and fit_individual_rp_over_rs:
             for phot_filter in unique_filters:
                 names.append('rp_ovr_rs::{0}'.format(phot_filter))
-                print_names.append(r'$R_\mathrm{{p}}/R_*$::{0}'.format(phot_filter))
+                print_names.append(r'R_\mathrm{{p}}/R_*::{0}'.format(phot_filter))
                 initial.append(self.rp_over_rs)
                 limits1.append(fit_rp_over_rs_limits[0])
                 limits2.append(fit_rp_over_rs_limits[1])
@@ -1151,7 +1150,7 @@ class Planet:
 
         else:
             global_parameters_names = ['rp_over_rs']
-            global_parameters_print_names = [r'$R_\mathrm{p}/R_*$']
+            global_parameters_print_names = [r'R_\mathrm{p}/R_*']
             global_parameters_initial = [self.rp_over_rs]
             global_parameters_fit = [fit_rp_over_rs]
             global_parameters_limits = [fit_rp_over_rs_limits]
@@ -1160,7 +1159,7 @@ class Planet:
         # orbital parameters
 
         global_parameters_names += ['period', 'sma_over_rs', 'eccentricity', 'inclination', 'periastron']
-        global_parameters_print_names += [r'$P$', r'$a$', r'$e$', r'$i$', r'$\omega$']
+        global_parameters_print_names += ['P', 'a', 'e', 'i', r'\omega']
         global_parameters_initial += [self.period, self.sma_over_rs, self.eccentricity, self.inclination, self.periastron]
         global_parameters_fit += [fit_period, fit_sma_over_rs, False, fit_inclination, False]
         global_parameters_limits += [fit_period_limits, fit_sma_over_rs_limits, False, fit_inclination_limits, False]
@@ -1181,7 +1180,7 @@ class Planet:
             new_mid_time = self.eclipse_mid_time() + new_epoch * self.period
 
             global_parameters_names += ['eclipse_mid_time']
-            global_parameters_print_names += [r'$T_\mathrm{ec}$']
+            global_parameters_print_names += [r'T_\mathrm{ec}']
             global_parameters_initial += [new_mid_time]
             global_parameters_fit += [fit_mid_time]
             global_parameters_limits += [[new_mid_time + fit_mid_time_limits[0], new_mid_time + fit_mid_time_limits[1]]]
@@ -1209,7 +1208,7 @@ class Planet:
             for epoch in unique_epochs:
 
                 names.append('eclipse_mid_time::{0}'.format(epoch))
-                print_names.append(r'$T_\mathrm{{ec}}$::{0}'.format(epoch))
+                print_names.append(r'T_\mathrm{{ec}}::{0}'.format(epoch))
                 initial.append(eclipse_mid_time + epoch * self.period)
                 limits1.append(eclipse_mid_time + epoch * self.period + fit_mid_time_limits[0])
                 limits2.append(eclipse_mid_time + epoch * self.period + fit_mid_time_limits[1])
@@ -1237,7 +1236,7 @@ class Planet:
                               single_observation_full_model, initial, limits1, limits2,
                               logspace=logspace,
                               data_x_name='time', data_y_name='flux',
-                              data_x_print_name=r'$t_{BJD_{TDB}}$', data_y_print_name='Relative Flux',
+                              data_x_print_name='t_{BJD_{TDB}}', data_y_print_name='Relative Flux',
                               parameters_names=names, parameters_print_names=print_names,
                               walkers=walkers, iterations=iterations, burn_in=burn_in,
                               counter=counter,
@@ -1293,7 +1292,7 @@ class Planet:
         fitting = Fitting(model_time, model_flux, model_flux_unc,
                           full_model, initial, limits1, limits2,
                           data_x_name='time', data_y_name='flux',
-                          data_x_print_name=r'$t_{BJD_{TDB}}$', data_y_print_name='Relative Flux',
+                          data_x_print_name='t_{BJD_{TDB}}', data_y_print_name='Relative Flux',
                           parameters_names=names, parameters_print_names=print_names,
                           walkers=walkers, iterations=iterations, burn_in=burn_in,
                           counter=counter,
@@ -1321,7 +1320,7 @@ class Planet:
             'filter_outliers': filter_outliers,
             'optimiser': optimiser,
             'data_x_name': 'time',
-            'data_x_print_name': r't_${BJD_{TDB}}$',
+            'data_x_print_name': 't_{BJD_{TDB}}',
             'data_y_name': 'flux',
             'data_y_print_name': 'Relative Flux',
             'fit_individual_fp_over_fs': fit_individual_fp_over_fs,

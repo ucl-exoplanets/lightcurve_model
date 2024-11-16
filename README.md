@@ -60,17 +60,51 @@ properties and calculations.
 - Check the notebooks under the "notebooks/2_detrending_examples" directory 
   to see how to model your light-curves.
 
-- Check the notebook "2_core_calculations" for higher efficiency 
+- Check the notebook "3_core_calculations" for higher efficiency 
   (suggested for developers).
 
 
 
-## History
+# History
 
-### v4.1
+## PyLightcurve v4.1.x
 
-#### Changes in usage:
+### Changes in usage compared to Pylightcurve v4.0.x versions:
+
+- Parameters renamed
+
+An attempt has been made to use more consistent and self-explainable parameter names in PyLightcurve. 
+Please pay extra care when accessing the fitting output, almost all parameter names have changed!
+
+| variable name in         | type       | description                               |unit                    |
+|:-------------------------|:----------:|:-----------------------------------------:|:----------------------:|
+| ``name``                 |``str``     |name of the planet                         |          --            |
+| ``ra``                   |``float``   |RA of the host star                        |degrees (ICRS)          |
+| ``dec``                  |``float``   |DEC of the host star                       |degrees (ICRS)          |
+| ``stellar_logg``         |``float``   |log(g) of the host star                    |log(cm/s<sup>2)         |
+| ``stellar_temperature``  |``float``   |effecive temperature of the host star      |Kelvin                  |
+| ``stellar_metallicity``  |``float``   |metallicity of the host star               |dex(Fe/H) or dex(M/H)   |
+| ``rp_over_rs``           |``float``   |plant-to-star radius ratio                 |          --            |
+| ``period``               |``float``   |orbital period                             |days                    |
+| ``sma_over_rs``          |``float``   |orbital semi-major axis relatively <br> to the stellar radius                                            |          --            |
+| ``eccentricity``         |``float``   |orbital eccentricity                       |          --            |
+| ``inclination``          |``float``   |orbital inclination                        |degrees                 |
+| ``periastron``           |``float``   |orbital argument of periastron             |degrees                 |
+| ``mid_time``             |``float``   |the time of conjunction with the planet in front of the star        |days (BJD<sub>TDB</sub>)|
+| ``albedo``               |``float``   |planet albedo                              |          --            |
+| ``emissivity``           |``float``   |planet emissivity                          |          --            |
+| ``filter_name``          |``str``     |filter used for the observation            |          --            |
+| ``wlrange``              |``list`` or ``None``    |2-element list that includes the wavelength range in the filter used for the observation     |        Angstrom        |
+| ``ldc_method``           |``str``     |limb-darkening model used to calculate the limb-darkening coefficients                                   |          --            |
+| ``stellar_model``        |``str``     |stellar model used to calculate the limb-darkening coefficients                                          |          --            |
+| ``precision``            |``int``     |level of precision used to calculate the light-curve models                                              |          --            |
+
+- New structure for fitting output
+
+Please check the notebook ```notebooks/2_detrending_examples/0_a_simple_lc_fitting.ipynb``` to see the structure of the fitting output.
+
 - New way of accessing the LDCs and the Fp/Fs in the planet class
+
 ```python
 # v4.0
 limb_darkening_coefficients = planet.filter('COUSINS_R').limb_darkening_coefficients
@@ -78,7 +112,7 @@ fp_over_fs = planet.filter('COUSINS_R').fp_over_fs
 rp_over_rs = planet.filter('COUSINS_R').rp_over_rs
 
 # v4.1
-limb_darkening_coefficients = planet.exotethys('COUSINS_R', method='claret', 
+limb_darkening_coefficients = planet.exotethys('COUSINS_R', ldc_method='claret',
                                                wlrange=None, stellar_model='Phoenix_2018')
 # available methods: claret, power2, quad, linear
 # available stellar models: Atlas_2000, Phoenix_2012_13, Stagger_2015, Stagger_2018
@@ -86,6 +120,7 @@ limb_darkening_coefficients = planet.exotethys('COUSINS_R', method='claret',
 fp_over_fs = planet.fp_over_fs('COUSINS_R', wlrange=None)
 rp_over_rs = planet.rp_over_rs
 ```
+
 
 - Planet eclipse time is not automatically calulated
 ```python
@@ -95,7 +130,6 @@ eclipse_mid_time = planet.eclipse_mid_time
 # v4.1
 eclipse_mid_time = planet.eclipse_mid_time()
 ```
-
 
 
 - New way of adding custom filters or limb darkening coefficients in the planet class
@@ -114,7 +148,8 @@ planet.add_custom_limb_darkening_coefficients([ldc1, ldc2, ldc3, ldc4], filter_n
 
 - Stellar model is no longer defined when initialising a Planet object (no ```ldc_stellar_model``` argument), it is defined when adding an observation
   
-- New way of defining the iterations in MCMC
+
+- New definition of iterations in MCMC
 ```python
 # v4.0 -  total model evaluations = iterations
 iterations, walkers = 15000, 3
@@ -122,20 +157,38 @@ iterations, walkers = 15000, 3
 # v4.1 - total model evaluations = iterations x walkers
 iterations, walkers = 5000, 3
 ```
-- Time conversions are now available through the Planet class
+
+
+- Time conversions are now available through the Planet class directly
 ```python
 # v4.0
-time_in_bjd_utc = planet.target.convert_to_bjd_tdb(time_in_hjd_utc, 'HJD_UTC')
+time_in_bjd_tdb = planet.target.convert_to_bjd_tdb(time_in_hjd_utc, 'HJD_UTC')
 
 
 # v4.1 
-time_in_bjd_utc = planet.convert_to_bjd_tdb(time_in_hjd_utc, 'HJD_UTC')
+time_in_bjd_tdb = planet.convert_to_bjd_tdb(time_in_hjd_utc, 'HJD_UTC')
 # or
-time_in_bjd_utc = plc.convert_to_bjd_tdb(ra_in_degrees, dec_in_degrees, time_in_hjd_utc, 'HJD_UTC')
+time_in_bjd_tdb = plc.convert_to_bjd_tdb(ra_in_degrees, dec_in_degrees, time_in_hjd_utc, 'HJD_UTC')
 # where ra, dec in degrees
 # available formats: JD_UTC, MJD_UTC, HJD_UTC, HJD_TDB, BJD_UTC, BJD_TDB
 ```
-- PyLightcurve now accepts angles as floats only (degrees). No angle transformation through 
+
+
+- When performing core calculations directly or through a ```plc.Planet``` object, 
+  all time arrays must be provided in ```BJD_TDB```, so you need to convert them first
+```python
+# v4.0
+time_in_jd_utc = np.arange(planet.mid_time - 0.1, planet.mid_time + 0.1, 0.001)
+transit_model = planet.transit(time_in_jd_utc, time_format='JD_UTC', filter_name='COUSINS_R')
+
+
+# v4.1 
+time_in_jd_utc = np.arange(planet.mid_time - 0.1, planet.mid_time + 0.1, 0.001)
+time_in_bjd_tdb = planet.convert_to_bjd_tdb(time_in_hjd_utc, 'JD_UTC')
+transit_model = planet.transit(time_array_in_jd_utc, filter_name='COUSINS_R')
+```
+
+- PyLightcurve now accepts angles as floats only (degrees). No angle transformations through 
   ```pylightcurve``` are available, please use the new ```exoclock``` package.
 ```python
 # v4.0
@@ -148,8 +201,6 @@ ra_in_dms = ra.dms()
 ra_in_dms_coordinate = ra.dms_coord() # this will give the angle between -90 and 90 degrees
 ra_in_hms = ra.hms()
 ra_in_degrees_coordinate = ra.deg_coord() # this will give the angle between -90 and 90 degrees
-
-
 
 # v4.1 
 import exoclock
@@ -164,16 +215,15 @@ ra_in_hms = ra.hms()
 ra_in_degrees_coordinate = ra.deg_coord() # this will give the angle between -90 and 90 degrees
 ```
 
-
-#### New features:
+### New features:
 - Custom detrending
 - Automatic scaling of uncertainties, outliers rejection and initial parameter optimisation
-- Wrapper for ExoTETHyS and sub-bandpass LDCs
+- Wrapper for ExoTETHyS and LDCs for sub-bandpass
 - More precise integration
-- Airmass detrending is now available
-- Flux/Mag conversions are now available through the Planet class
+- Airmass detrending
+- Flux/Mag conversions available through the Planet class
 
-### v4.0 - [latest (v4.0.3)](https://github.com/ucl-exoplanets/pylightcurve/releases/tag/v4.0.3)
+### PyLightcurve v4.1.x - [latest (v4.0.4)](https://github.com/ucl-exoplanets/pylightcurve/releases/tag/v4.0.4)
 
 - PyLightcurve 4.0 no longer supports the use of the Open Exoplanet Catalogue (OEC), due to the large number
 of mistakes in the catalogue and the absence of parameters updates. OEC has been replaced by the
@@ -205,13 +255,17 @@ angles (e.g. '+47:12:34.05' to degrees) and of timing systems (e.g. HJD_UTC to B
 ### 4.0.3
 - Fix np.float bug.
 
+### 4.0.4
+- Fixed packaging and test issues.
+- Fixed latex strings in plots.
+- Fixed matplotlib.cm.get_cmap bug.
 
 
 ## Licence
 
 MIT License
 
-Copyright (c) 2016-2023 Angelos Tsiaras, and collaborators
+Copyright (c) 2016-present Angelos Tsiaras, and collaborators
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

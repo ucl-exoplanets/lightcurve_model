@@ -2,15 +2,6 @@ __all__ = ['gauss_numerical_integration', 'sample_function']
 
 import numpy as np
 
-gauss_legendre0 = [
-    [0.1713244923791703450403, -0.9324695142031520278123],
-    [0.3607615730481386075698, -0.661209386466264513661	],
-    [0.4679139345726910473899, -0.2386191860831969086305],
-    [0.46791393457269104739  , 0.238619186083196908631	],
-    [0.3607615730481386075698, 0.661209386466264513661	],
-    [0.1713244923791703450403, 0.9324695142031520278123	],
-]
-
 gauss_legendre10 = [
     [0.0666713443086881375936, -0.973906528517171720078	],
     [0.149451349150580593146 , -0.8650633666889845107321],
@@ -592,14 +583,6 @@ gauss_legendre100 = [
     [7.3463449050567173e-4     , 0.9997137267734412336782],
 ]
 
-gauss_kronrod0 = [
-    [0.197979797979797979798 , -0.9258200997725514615666],
-    [0.4909090909090909090909, -0.5773502691896257645092],
-    [0.6222222222222222222222, 0	                    ],
-    [0.490909090909090909091 , 0.5773502691896257645092	],
-    [0.197979797979797979798 , 0.9258200997725514615666	],
-    ]
-
 
 gauss_kronrod10 = [
     [0.06297737366547301476549, -0.9765602507375731115345],
@@ -1172,19 +1155,21 @@ gauss_kronrod100 = [
 ]
 
 
-gauss_legendre_table = [np.swapaxes(gauss_legendre0, 0, 1),
-                        np.swapaxes(gauss_legendre10, 0, 1), np.swapaxes(gauss_legendre20, 0, 1), np.swapaxes(gauss_legendre30, 0, 1),
-                        np.swapaxes(gauss_legendre40, 0, 1), np.swapaxes(gauss_legendre50, 0, 1), np.swapaxes(gauss_legendre60, 0, 1),
-                        np.swapaxes(gauss_legendre70, 0, 1), np.swapaxes(gauss_legendre80, 0, 1), np.swapaxes(gauss_legendre90, 0, 1),
-                        np.swapaxes(gauss_legendre100, 0, 1)
-                        ]
+gauss_legendre_table = [
+    np.swapaxes(gauss_legendre10, 0, 1),
+    np.swapaxes(gauss_legendre10, 0, 1), np.swapaxes(gauss_legendre20, 0, 1), np.swapaxes(gauss_legendre30, 0, 1),
+    np.swapaxes(gauss_legendre40, 0, 1), np.swapaxes(gauss_legendre50, 0, 1), np.swapaxes(gauss_legendre60, 0, 1),
+    np.swapaxes(gauss_legendre70, 0, 1), np.swapaxes(gauss_legendre80, 0, 1), np.swapaxes(gauss_legendre90, 0, 1),
+    np.swapaxes(gauss_legendre100, 0, 1)
+]
 
-gauss_kronrod_table = [np.swapaxes(gauss_kronrod0, 0, 1),
-                        np.swapaxes(gauss_kronrod10, 0, 1), np.swapaxes(gauss_kronrod20, 0, 1), np.swapaxes(gauss_kronrod30, 0, 1),
-                        np.swapaxes(gauss_kronrod40, 0, 1), np.swapaxes(gauss_kronrod50, 0, 1), np.swapaxes(gauss_kronrod60, 0, 1),
-                        np.swapaxes(gauss_kronrod70, 0, 1), np.swapaxes(gauss_kronrod80, 0, 1), np.swapaxes(gauss_kronrod90, 0, 1),
-                        np.swapaxes(gauss_kronrod100, 0, 1)
-                        ]
+gauss_kronrod_table = [
+    np.swapaxes(gauss_kronrod10, 0, 1),
+    np.swapaxes(gauss_kronrod10, 0, 1), np.swapaxes(gauss_kronrod20, 0, 1), np.swapaxes(gauss_kronrod30, 0, 1),
+    np.swapaxes(gauss_kronrod40, 0, 1), np.swapaxes(gauss_kronrod50, 0, 1), np.swapaxes(gauss_kronrod60, 0, 1),
+    np.swapaxes(gauss_kronrod70, 0, 1), np.swapaxes(gauss_kronrod80, 0, 1), np.swapaxes(gauss_kronrod90, 0, 1),
+    np.swapaxes(gauss_kronrod100, 0, 1)
+]
 
 gauss_table = gauss_kronrod_table
 # gauss_table = gauss_legendre_table

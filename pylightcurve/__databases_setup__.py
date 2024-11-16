@@ -3,7 +3,7 @@ import os
 import time
 import shutil
 
-from pylightcurve.processes.files import open_dict, download
+from .processes.files import open_dict, download
 
 try:
     import zipfile
@@ -24,6 +24,12 @@ def _setup_database(plc_data, database_name):
         database_file_path_new = os.path.join(plc_data.databases_directory_path, database_name + '_new.pickle')
         database_file_path_old = os.path.join(plc_data.databases_directory_path, database_name + '_old.pickle')
         last_update_file_path = os.path.join(plc_data.databases_directory_path, '{0}_last_update.txt'.format(database_name))
+
+        if os.path.isfile(database_file_path):
+            try:
+                _ = open_dict(database_file_path)
+            except:
+                os.remove(database_file_path)
 
         # define paths
 

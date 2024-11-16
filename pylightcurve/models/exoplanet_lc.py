@@ -101,13 +101,14 @@ def planet_phase(period, mid_time, time_array):
 
     phase = (time_array - mid_time)/period
 
-    return phase - np.int_(phase)
+    return phase - np.round(phase, 0)
 
 # flux drop - new
 
+
 class Integrals:
 
-    def __init__(self, rprs, limb_darkening_coefficients, method, precision):
+    def __init__(self, rprs, limb_darkening_coefficients, ldc_method, precision):
 
         self.rprs = rprs
         self.limb_darkening_coefficients = limb_darkening_coefficients
@@ -118,12 +119,12 @@ class Integrals:
             'power2': self.kappa_power2,
             'claret': self.kappa_claret,
             'eclipse': self.kappa_eclipse
-        }[method]
+        }[ldc_method]
 
         self.a1 = limb_darkening_coefficients[0]
-        if method != 'linear':
+        if ldc_method != 'linear':
             self.a2 = limb_darkening_coefficients[1]
-        if method == 'claret':
+        if ldc_method == 'claret':
             self.a3 = limb_darkening_coefficients[2]
             self.a4 = limb_darkening_coefficients[3]
 
@@ -185,10 +186,9 @@ class Integrals:
             )
 
 
+def transit_flux_drop(limb_darkening_coefficients, rp_over_rs, z_over_rs, ldc_method, precision, spoint=None):
 
-def transit_flux_drop(limb_darkening_coefficients, rp_over_rs, z_over_rs, method, precision,  spoint=None):
-
-    integral_class = Integrals(rp_over_rs, limb_darkening_coefficients, method, precision)
+    integral_class = Integrals(rp_over_rs, limb_darkening_coefficients, ldc_method, precision)
 
     len_z_over_rs = len(z_over_rs)
 
@@ -222,24 +222,11 @@ def transit_flux_drop(limb_darkening_coefficients, rp_over_rs, z_over_rs, method
     u2[case4] = np.arccos((1.0 - rp_over_rs ** 2 + zsq[case4]) / (2.0 * z_over_rs[case4]))
     u2[case5] = 2*np.pi - np.arccos((1.0 - rp_over_rs ** 2 + zsq[case5]) / (2.0 * z_over_rs[case5]))
 
-    if precision =='ref':
+    if precision == 'ref':
         spoint_minus = np.ones(len_z_over_rs) * 0.999
         spoint_plus = np.ones(len_z_over_rs) * 0.999
     else:
         if not spoint:
-            # spoint = [
-            #     0.9218282226562504,
-            #     0.9563458007812503,
-            #     0.9834234375000003,
-            #     0.9906437500000003,
-            #     0.9940283203125003,
-            #     0.9957342773437505,
-            #     0.9967330078125005,
-            #     0.9975126953125002,
-            #     0.9979268554687502,
-            #     0.9983170898437501,
-            #     0.9985122070312502,
-            #             ][precision]
             spoint = [
                 0.9225257991338730,
                 0.9563656913370522,
@@ -277,7 +264,11 @@ def transit_flux_drop(limb_darkening_coefficients, rp_over_rs, z_over_rs, method
 # transit
 
 def transit(limb_darkening_coefficients, rp_over_rs, period, sma_over_rs, eccentricity, inclination, periastron,
-            mid_time, time_array, method='claret', precision=2):
+            mid_time, time_array, ldc_method='claret', precision=2, method=None):
+
+    # for compatibility with iraclis 1.xx.xx
+    if method:
+        ldc_method = method
 
     position_vector = planet_orbit(period, sma_over_rs, eccentricity, inclination, periastron, mid_time, time_array)
 
@@ -285,11 +276,16 @@ def transit(limb_darkening_coefficients, rp_over_rs, period, sma_over_rs, eccent
         position_vector[0] < 0, 1.0 + 10.0 * rp_over_rs,
         np.sqrt(position_vector[1] * position_vector[1] + position_vector[2] * position_vector[2]))
 
-    return transit_flux_drop(limb_darkening_coefficients, rp_over_rs, projected_distance, method, precision)
+    return transit_flux_drop(limb_darkening_coefficients, rp_over_rs, projected_distance, ldc_method, precision)
 
 
 def transit_integrated(limb_darkening_coefficients, rp_over_rs, period, sma_over_rs, eccentricity, inclination,
-                       periastron, mid_time, time_array, exp_time, max_sub_exp_time=10, method='claret', precision=2):
+                       periastron, mid_time, time_array, exp_time, max_sub_exp_time=10, ldc_method='claret',
+                       precision=2, method=None):
+
+    # for compatibility with iraclis 1.xx.xx
+    if method:
+        ldc_method = method
 
     time_factor = int(exp_time / max_sub_exp_time) + 1
     exp_time /= (60.0 * 60.0 * 24.0)
@@ -305,7 +301,7 @@ def transit_integrated(limb_darkening_coefficients, rp_over_rs, period, sma_over
         np.sqrt(position_vector[1] * position_vector[1] + position_vector[2] * position_vector[2]))
 
     return np.mean(np.reshape(
-        transit_flux_drop(limb_darkening_coefficients, rp_over_rs, projected_distance, method, precision),
+        transit_flux_drop(limb_darkening_coefficients, rp_over_rs, projected_distance, ldc_method, precision),
         (len(time_array), time_factor)), 1)
 
 
@@ -350,10 +346,14 @@ def transit_t12(rp_over_rs, period, sma_over_rs, eccentricity, inclination, peri
 
 
 def transit_depth(limb_darkening_coefficients, rp_over_rs, period, sma_over_rs, eccentricity, inclination,
-                  periastron, method='claret', precision=2):
+                  periastron, ldc_method='claret', precision=2, method=None):
+
+    # for compatibility with iraclis 1.xx.xx
+    if method:
+        ldc_method = method
 
     return 1 - transit(limb_darkening_coefficients, rp_over_rs, period, sma_over_rs, eccentricity, inclination,
-                       periastron, 10000, np.array([10000]), method, precision)[0]
+                       periastron, 10000, np.array([10000]), ldc_method, precision)[0]
 
 
 # eclipse
@@ -471,8 +471,8 @@ def fp_over_fs(rp_over_rs, sma_over_rs, albedo, emissivity, stellar_temperature,
     return reflection + emission
 
 
-def exotethys(stellar_logg, stellar_temperature, stellar_metallicity, filter_name, wlrange=None, method='claret',
-              stellar_model='Phoenix_2018'):
+def exotethys(stellar_logg, stellar_temperature, stellar_metallicity, filter_name, wlrange=None,
+              ldc_method='claret', stellar_model='Phoenix_2018', method=None):
     """Calculates the limb-darkening coefficients for the host star, by calling the ExoTehys package.
      Not all the combinations of filters and stellar models are available. This will depend on the stellar temperature,
      the stellar model and the wavelength range of the filter.
@@ -484,13 +484,17 @@ def exotethys(stellar_logg, stellar_temperature, stellar_metallicity, filter_nam
      :type filter_name: str
      :param wlrange: A 2-element list, defining the wavelength range (in Angstrom) within the filter, Useful for spectroscopic observations.
      :type wlrange: list
-     :param method: Limb-darkening model to de used. Available methods: claret, power2, quad, linear,
-     :type method: str
+     :param ldc_method: Limb-darkening model to de used. Available methods: claret, power2, quad, linear,
+     :type ldc_method: str
      :param stellar_model: Stellar model to be used. Available methods: check ExoTethys documentation.
      :type stellar_model: str
      :return: Limb-darkening coefficients. Four coefficients are always returned (for methods that need less than four coefficents, the rest are 0).
      :rtype: numpy.ndarray
      """
+
+    # for compatibility with iraclis 1.xx.xx
+    if method:
+        ldc_method = method
 
     if 'phoenix' in stellar_model.lower() and stellar_metallicity != 0:
         logging.warning('\nPHOENIX models are only computed for solar metallicity stars. '
@@ -512,9 +516,9 @@ def exotethys(stellar_logg, stellar_temperature, stellar_metallicity, filter_nam
         'quad': 'quadratic',
         'linear': 'linear'
     }
-    if method not in method_map:
+    if ldc_method not in method_map:
         raise PyLCInputError('Method {0} is not valid. Available methods: {1}'.format(
-            method, ','.join(list(method_map.keys()))))
+            ldc_method, ','.join(list(method_map.keys()))))
 
     run_id = ''.join([str(np.random.randint(0, 99)) for ff in range(10)])
     bandpass_file = os.path.join(path, 'ww_{0}.pass'.format(run_id))
@@ -528,7 +532,7 @@ def exotethys(stellar_logg, stellar_temperature, stellar_metallicity, filter_nam
     r = r.replace('{{output}}', path)
     r = r.replace('{{id}}', str(run_id))
     r = r.replace('{{model}}', stellar_model)
-    r = r.replace('{{law}}', method_map[method])
+    r = r.replace('{{law}}', method_map[ldc_method])
     r = r.replace('{{teff}}', str(stellar_temperature))
     r = r.replace('{{logg}}', str(stellar_logg))
     r = r.replace('{{meta}}', str(stellar_metallicity))
@@ -545,7 +549,7 @@ def exotethys(stellar_logg, stellar_temperature, stellar_metallicity, filter_nam
         for ff in glob.glob(os.path.join(path, '*{0}*'.format(run_id))):
             os.remove(ff)
 
-        ldcs = results['passbands']['ww_{0}.pass'.format(run_id)][method_map[method]]['coefficients']
+        ldcs = results['passbands']['ww_{0}.pass'.format(run_id)][method_map[ldc_method]]['coefficients']
 
         while len(ldcs) < 4:
             ldcs = np.append(ldcs, 0)
@@ -554,7 +558,7 @@ def exotethys(stellar_logg, stellar_temperature, stellar_metallicity, filter_nam
 
     except:
         plc_data.reset_exotethys_data()
-        return exotethys(stellar_logg, stellar_temperature, stellar_metallicity, filter_name, wlrange, method,
+        return exotethys(stellar_logg, stellar_temperature, stellar_metallicity, filter_name, wlrange, ldc_method,
                          stellar_model)
 
 

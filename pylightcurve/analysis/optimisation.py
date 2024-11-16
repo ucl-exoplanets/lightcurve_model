@@ -120,6 +120,7 @@ class Fitting:
         self.walkers_spread = float(walkers_spread)
         self.walkers_initial_positions = None
         self.sampler = None
+        self.sampler_steps = 100
         self.progress = 0
 
         if counter:
@@ -140,7 +141,9 @@ class Fitting:
             'parameters': {},
             'parameters_final': [],
             'output_series': {},
-            'statistics': {}}
+            'statistics': {},
+            'mcmc_run_complete': False,
+        }
 
         self.fitted_parameters = []
 
@@ -380,7 +383,7 @@ class Fitting:
 
             self._postfit()
 
-        elif self.optimiser == 'emcee':
+        elif self.optimiser == 'emcee':=
 
             sys.setrecursionlimit(self.iterations)
 
@@ -389,7 +392,7 @@ class Fitting:
             option = int(bool(self.counter_name))
 
             self.counter = Counter(['MCMC', self.counter_name][option], self.iterations - self.progress,
-                                   show_every=[self.iterations, 0][option] + 10, increment=10)
+                                   show_every=[self.iterations, 0][option] + self.sampler_steps, increment=self.sampler_steps)
             self._emcee_run()
 
     def _emcee_run(self):
@@ -404,8 +407,8 @@ class Fitting:
                     self.walkers_initial_positions = np.minimum(self.walkers_initial_positions, 1)
                     self.walkers_initial_positions = np.maximum(self.walkers_initial_positions, 0)
 
-                    self.sampler.run_mcmc(self.walkers_initial_positions, 10)
-                    self.progress += 10
+                    self.sampler.run_mcmc(self.walkers_initial_positions, self.sampler_steps)
+                    self.progress += self.sampler_steps
                     self.counter.update()
 
                     self._emcee_run()
@@ -415,8 +418,8 @@ class Fitting:
 
         elif self.progress < self.iterations:
 
-            self.sampler.run_mcmc(None, 10, skip_initial_state_check=True)
-            self.progress += 10
+            self.sampler.run_mcmc(None, self.sampler_steps, skip_initial_state_check=True)
+            self.progress += self.sampler_steps
             self.counter.update()
 
             self._emcee_run()
@@ -515,6 +518,7 @@ class Fitting:
             self.results['statistics'][statistic] = statistics[statistic]
 
         self.mcmc_run_complete = True
+        self.results['mcmc_run_complete'] = True
 
     def save_all(self, export_file):
 

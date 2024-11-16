@@ -138,7 +138,7 @@ def plot_mcmc_corner(fitting_object, export_file):
         ax.tick_params(left=False, right=False, top=False, bottom=False, labelbottom=False, labelleft=False)
 
         ax.set_xlabel(
-            r'{0}\n'.format(names[var]) +
+            r'${0}$'.format(names[var]) + '\n' +
             r'${0}_{{-{1}}}^{{+{2}}}$'.format(
                 print_results[var], print_errors1[var], print_errors2[var])
             , fontsize=fontsize, ha='right', x=0.8)
@@ -195,7 +195,7 @@ def plot_mcmc_traces(fitting_object, export_file):
         # ax.tick_params(left=False, right=False, labelleft=False)
 
         ax.set_title(
-            r'{0}\n'.format(fitting_object.results['parameters'][var]['print_name']) +
+            r'${0}$'.format(fitting_object.results['parameters'][var]['print_name']) + '\n' +
             r'${0}_{{-{1}}}^{{+{2}}}$'.format(fitting_object.results['parameters'][var]['print_value'],
                                               fitting_object.results['parameters'][var]['print_m_error'],
                                               fitting_object.results['parameters'][var]['print_p_error'])
