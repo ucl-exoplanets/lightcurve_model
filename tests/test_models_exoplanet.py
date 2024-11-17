@@ -123,7 +123,23 @@ def test_exoplanet():
     planet.add_observation(obs0_time, 'BJD_TDB', 60, 'mid', obs0_flux, obs0_flux_unc, 'flux', 'COUSINS_R',
                            auxiliary_data={'test': obs0_time + 10},
                            observatory_latitude=40.0, observatory_longitude=23.0,
-                           detrending_series=['time', 'test']
+                           detrending_series=['time', 'test'],
+                           )
+    planet.add_observation(obs0_time, 'BJD_TDB', 60, 'mid', obs0_flux, obs0_flux_unc, 'flux', 'COUSINS_R',
+                           detrending_series='time',
+                           detrending_order=1
+                           )
+    planet.add_observation(obs0_time, 'BJD_TDB', 60, 'mid', obs0_flux, obs0_flux_unc, 'flux', 'COUSINS_R',
+                           detrending_series='time',
+                           detrending_order=1.0
+                           )
+    planet.add_observation(obs0_time, 'BJD_TDB', 60, 'mid', obs0_flux, obs0_flux_unc, 'flux', 'COUSINS_R',
+                           detrending_series='time',
+                           detrending_order=[1]
+                           )
+    planet.add_observation(obs0_time, 'BJD_TDB', 60, 'mid', obs0_flux, obs0_flux_unc, 'flux', 'COUSINS_R',
+                           detrending_series='time',
+                           detrending_order=[1.0]
                            )
 
     for observation in planet.observations:
@@ -151,6 +167,14 @@ def test_exoplanet():
     with pytest.raises(plc.PyLCInputError):
         planet.add_observation(obs0_time, 'BJD_TDB', 60, 'mid', obs0_flux, obs0_flux_unc, 'flux', 'COUSINS_R',
                                detrending_series='time', detrending_order=-3)
+
+    with pytest.raises(plc.PyLCInputError):
+        planet.add_observation(obs0_time, 'BJD_TDB', 60, 'mid', obs0_flux, obs0_flux_unc, 'flux', 'COUSINS_R',
+                               detrending_series='time', detrending_order='-3')
+
+    with pytest.raises(plc.PyLCInputError):
+        planet.add_observation(obs0_time, 'BJD_TDB', 60, 'mid', obs0_flux, obs0_flux_unc, 'flux', 'COUSINS_R',
+                               detrending_series='time', detrending_order=['-3'])
 
     with pytest.raises(plc.PyLCInputError):
         planet.add_observation_from_dict(10)

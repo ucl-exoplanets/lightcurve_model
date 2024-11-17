@@ -1,4 +1,3 @@
-import os.path
 
 import numpy as np
 import matplotlib
@@ -81,8 +80,14 @@ def plot_mcmc_fitting(fitting_object, output_file):
 
 
 def plot_mcmc_corner(fitting_object, export_file):
+    fig = draw_mcmc_corner(fitting_object.results)
+    fig.savefig(export_file, transparent=False)
+    del fig
 
-    if not fitting_object.mcmc_run_complete:
+
+def draw_mcmc_corner(fitting_results):
+
+    if not fitting_results['mcmc_run_complete']:
         raise PyLCProcessError('MCMC not completed')
 
     names = []
@@ -97,29 +102,29 @@ def plot_mcmc_corner(fitting_object, export_file):
     traces_bins = []
     traces_counts = []
 
-    for i in fitting_object.names:
-        if fitting_object.results['parameters'][i]['initial']:
-            names.append(fitting_object.results['parameters'][i]['print_name'])
-            results.append(fitting_object.results['parameters'][i]['value'])
-            print_results.append(fitting_object.results['parameters'][i]['print_value'])
-            errors1.append(fitting_object.results['parameters'][i]['m_error'])
-            print_errors1.append(fitting_object.results['parameters'][i]['print_m_error'])
-            errors2.append(fitting_object.results['parameters'][i]['p_error'])
-            print_errors2.append(fitting_object.results['parameters'][i]['print_p_error'])
-            errors.append(0.5 * (fitting_object.results['parameters'][i]['m_error'] +
-                                 fitting_object.results['parameters'][i]['p_error']))
-            traces.append(fitting_object.results['parameters'][i]['trace'])
-            traces_bins.append(fitting_object.results['parameters'][i]['trace_bins'])
-            traces_counts.append(fitting_object.results['parameters'][i]['trace_counts'])
+    for i in fitting_results['parameters']:
+        if fitting_results['parameters'][i]['initial']:
+            names.append(fitting_results['parameters'][i]['print_name'])
+            results.append(fitting_results['parameters'][i]['value'])
+            print_results.append(fitting_results['parameters'][i]['print_value'])
+            errors1.append(fitting_results['parameters'][i]['m_error'])
+            print_errors1.append(fitting_results['parameters'][i]['print_m_error'])
+            errors2.append(fitting_results['parameters'][i]['p_error'])
+            print_errors2.append(fitting_results['parameters'][i]['print_p_error'])
+            errors.append(0.5 * (fitting_results['parameters'][i]['m_error'] +
+                                 fitting_results['parameters'][i]['p_error']))
+            traces.append(fitting_results['parameters'][i]['trace'])
+            traces_bins.append(fitting_results['parameters'][i]['trace_bins'])
+            traces_counts.append(fitting_results['parameters'][i]['trace_counts'])
 
-    correlation = fitting_object.results['statistics']['corr_matrix']
+    correlation = fitting_results['statistics']['corr_matrix']
 
     all_var = len(traces)
 
     fig = Figure(figsize=(2.5 * all_var + 0.5, 2.5 * all_var + 0.5))
     cmap = matplotlib.colormaps['brg']
     gs = gridspec.GridSpec(all_var, all_var, fig, 0.5 / (2.5 * all_var + 0.5), 0.85 / (2.5 * all_var + 0.5),
-                               1 - 0.5 / (2.5 * all_var + 0.5), 1 - 0.15 / (2.5 * all_var + 0.5), 0.0, 0.0)
+                           1 - 0.5 / (2.5 * all_var + 0.5), 1 - 0.15 / (2.5 * all_var + 0.5), 0.0, 0.0)
 
     fontsize = 20
 
@@ -168,47 +173,71 @@ def plot_mcmc_corner(fitting_object, export_file):
                      color=cmap(abs(correlation[var][j]) / 2.),
                      fontsize=fontsize, ha='right', va='top')
 
+    return fig
+
+
+def plot_mcmc_traces(fitting_object, export_file):
+    fig = draw_mcmc_traces(fitting_object.results)
     fig.savefig(export_file, transparent=False)
     del fig
 
 
-def plot_mcmc_traces(fitting_object, export_file):
+def draw_mcmc_traces(fitting_results):
 
-    if not fitting_object.mcmc_run_complete:
+    if not fitting_results['mcmc_run_complete']:
         raise PyLCProcessError('MCMC not completed')
 
-    fig = Figure(figsize=(7, 2.5 * len(fitting_object.fitted_parameters)), tight_layout=False)
+    names = []
+    results = []
+    print_results = []
+    errors1 = []
+    print_errors1 = []
+    errors2 = []
+    print_errors2 = []
+    errors = []
+    traces = []
+    traces_bins = []
+    traces_counts = []
 
-    for var_num, var in enumerate(fitting_object.fitted_parameters):
+    for i in fitting_results['parameters']:
+        if fitting_results['parameters'][i]['initial']:
+            names.append(fitting_results['parameters'][i]['print_name'])
+            results.append(fitting_results['parameters'][i]['value'])
+            print_results.append(fitting_results['parameters'][i]['print_value'])
+            errors1.append(fitting_results['parameters'][i]['m_error'])
+            print_errors1.append(fitting_results['parameters'][i]['print_m_error'])
+            errors2.append(fitting_results['parameters'][i]['p_error'])
+            print_errors2.append(fitting_results['parameters'][i]['print_p_error'])
+            errors.append(0.5 * (fitting_results['parameters'][i]['m_error'] +
+                                 fitting_results['parameters'][i]['p_error']))
+            traces.append(fitting_results['parameters'][i]['trace'])
+            traces_bins.append(fitting_results['parameters'][i]['trace_bins'])
+            traces_counts.append(fitting_results['parameters'][i]['trace_counts'])
 
-        ax = fig.add_subplot(len(fitting_object.fitted_parameters), 1, var_num + 1)
-        ax.plot(fitting_object.results['parameters'][var]['trace'], 'k-', lw=0.1)
-        ax.axhline(fitting_object.results['parameters'][var]['value'], c='r')
-        ax.axhline(fitting_object.results['parameters'][var]['value'] -
-                   fitting_object.results['parameters'][var]['m_error'],
+    fig = Figure(figsize=(7, 2.5 * len(names)), tight_layout=False)
+
+    for var in range(len(names)):
+
+        ax = fig.add_subplot(len(names), 1, var + 1)
+        ax.plot(traces[var], 'k-', lw=0.1)
+        ax.axhline(results[var], c='r')
+        ax.axhline(results[var] - errors1[var],
                    ls='--', c='r', lw=0.5)
-        ax.axhline(fitting_object.results['parameters'][var]['value'] +
-                   fitting_object.results['parameters'][var]['m_error'],
+        ax.axhline(results[var] + errors2[var],
                    ls='--', c='r', lw=0.5)
-
-        # ax.set_yticks([])
-        # ax.tick_params(left=False, right=False, labelleft=False)
 
         ax.set_title(
-            r'${0}$'.format(fitting_object.results['parameters'][var]['print_name']) + '\n' +
-            r'${0}_{{-{1}}}^{{+{2}}}$'.format(fitting_object.results['parameters'][var]['print_value'],
-                                              fitting_object.results['parameters'][var]['print_m_error'],
-                                              fitting_object.results['parameters'][var]['print_p_error'])
-            , fontsize=10)
+            r'${0}$'.format(names[var]) + '\n' +
+            r'${0}_{{-{1}}}^{{+{2}}}$'.format(print_results[var], print_errors1[var], print_errors2[var]),
+            fontsize=10)
 
-        if var_num != len(fitting_object.fitted_parameters) - 1:
+        if var != len(names) - 1:
             ax.tick_params(labelbottom='off')
         else:
             ax.set_xlabel(r'$\mathrm{iteration}$', fontsize=13)
 
     fig.subplots_adjust(hspace=0.5, wspace=0)
-    fig.savefig(export_file, transparent=False)
-    del fig
+    return fig
 
 
 def plot_transit_fitting_models(data, output_file):
@@ -286,7 +315,7 @@ def plot_transit_fitting_models(data, output_file):
         ax3.set_ylim(- 8 * np.std(data['detrended_series']['residuals']),
                      8 * np.std(data['detrended_series']['residuals']))
 
-        ax3.set_xlabel(r't [BJD_$\mathrm{TDB}$]', fontsize=fsbig)
+        ax3.set_xlabel(r'Time (days, BJD$_\mathrm{TDB}$)', fontsize=fsbig)
         fig.text(lebels_right, fbottom + (f3 / 2) * frow_height, 'residuals', fontsize=fsbig, va='center', ha='center',
                  rotation='vertical')
 

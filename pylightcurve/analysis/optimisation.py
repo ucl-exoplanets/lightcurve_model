@@ -392,7 +392,8 @@ class Fitting:
             option = int(bool(self.counter_name))
 
             self.counter = Counter(['MCMC', self.counter_name][option], self.iterations - self.progress,
-                                   show_every=[self.iterations, 0][option] + self.sampler_steps, increment=self.sampler_steps)
+                                   show_every=[self.iterations, 0][option] + self.sampler_steps,
+                                   increment=self.sampler_steps)
             self._emcee_run()
 
     def _emcee_run(self):

@@ -35,6 +35,23 @@ class Observation:
                  trend_function, trend_parameters,
                  ):
 
+        self.filter_id = None
+        self.series_length = None
+        self.time_hr = None
+        self.detrending = None
+        self.time_factor = None
+        self.exp_time_h = exp_time / (60.0 * 60.0 * 24.0)
+        self.parameters_map = None
+        self.non_outliers_map = None
+        self.number_of_detrending_parameters = None
+        self.initial = None
+        self.limits1 = None
+        self.limits2 = None
+        self.names = None
+        self.print_names = None
+        self.logspace = None
+
+
         if time_stamp not in ['start', 'mid', 'end']:
             raise PyLCInputError(
                 'Not acceptable time stamp {0}. Please choose between "mid", "start", "end".'.format(time_stamp))
@@ -73,15 +90,30 @@ class Observation:
                                      'Available detrending_series: {1}'.format(
                     detrending_series, ','.join(available_detrending_series)))
 
-            try:
-                detrending_order = int(detrending_order)
-                if detrending_order <= 0:
-                    raise PyLCInputError('You need to detrending_order must be a positive integer.')
-            except:
-                raise PyLCInputError('You need to detrending_order must be a positive integer.')
+
+            detrending_order_ok = True
+
+            if isinstance(detrending_order, int) and detrending_order > 0:
+                detrending_order = {ff: detrending_order for ff in detrending_series}
+            elif isinstance(detrending_order, float) and detrending_order > 0 and detrending_order == int(detrending_order):
+                detrending_order = {ff: int(detrending_order) for ff in detrending_series}
+            elif isinstance(detrending_order, list):
+                detrending_order = {detrending_series[ff]: detrending_order[ff] for ff in range(len(detrending_series))}
+                for i in detrending_order:
+                    if isinstance(detrending_order[i], int) and detrending_order[i] > 0:
+                        pass
+                    elif isinstance(detrending_order[i], float) and detrending_order[i] > 0 and detrending_order[i] == int(detrending_order[i]):
+                        detrending_order[i] = int(detrending_order[i])
+                    else:
+                        detrending_order_ok = False
+            else:
+                detrending_order_ok = False
+
+            if not detrending_order_ok:
+                raise PyLCInputError('The detrending_order must be a positive integer or a list of positive integers.')
 
         else:
-            raise PyLCInputError('You need to indicate a detrending_series or a trend_function')
+            raise PyLCInputError('You need to indicate either detrending_series or trend_function')
 
         self.dict = {
             'original_data': {
@@ -120,8 +152,8 @@ class Observation:
         self.dict['model_info'] = {
             'target': planet.name,
             'date': astrotime(
-                convert_to_jd_utc(planet.ra, planet.dec, min(self.dict['original_data']['time']),
-                                  self.dict['original_data']['time_format']),
+                planet.convert_to_jd_utc(min(self.dict['original_data']['time']),
+                                         self.dict['original_data']['time_format']),
                 format='jd'
             ).datetime.isoformat().split('T')[0],
             'ldc_method': planet.ldc_method,
@@ -138,18 +170,13 @@ class Observation:
             'sma_over_rs': planet.sma_over_rs,
         }
 
-        self.precision = planet.precision
-        self.max_sub_exp_time = planet.max_sub_exp_time
-        self.ldc_method = planet.ldc_method
-
         # convert time
 
         time_stamp_correction = {
             'start': 0.5,
             'mid': 0,
             'end': -0.5
-        }[self.dict['original_data']['time_stamp']]
-        time_stamp_correction = time_stamp_correction * self.dict['original_data']['exp_time'] / (60.0 * 60.0 * 24.0)
+        }[self.dict['original_data']['time_stamp']] * self.dict['original_data']['exp_time'] / (60.0 * 60.0 * 24.0)
 
         time = np.array(self.dict['original_data']['time']) + time_stamp_correction
         self.dict['data_conversion_info']['time_stamp_correction'] = time_stamp_correction
@@ -157,7 +184,7 @@ class Observation:
 
         bjd_tdb_correction = planet.convert_to_bjd_tdb(time, self.dict['original_data']['time_format']) - time
         time = np.array(time) + bjd_tdb_correction
-        self.dict['data_conversion_info']['bjd_tdb_correction'] = time_stamp_correction
+        self.dict['data_conversion_info']['bjd_tdb_correction'] = bjd_tdb_correction
         self.dict['data_conversion_info']['notes'].append('Time converted to BJD_TDB.')
 
         self.dict['input_series']['time'] = time
@@ -175,7 +202,7 @@ class Observation:
 
         for auxiliary_timeseries in self.dict['original_data']['auxiliary_data']:
             self.dict['input_series'][auxiliary_timeseries] = \
-                self.dict['original_data']['auxiliary_data'][auxiliary_timeseries]
+                self.dict['original_data']['auxiliary_data'][auxiliary_timeseries] * 1.0
 
         if (self.dict['original_data']['observatory_latitude'] is not None
                 and self.dict['original_data']['observatory_longitude'] is not None):
@@ -206,19 +233,15 @@ class Observation:
         eclipse_epoch = int(round(eclipse_phase, 0))
 
         if abs(transit_phase - transit_epoch) < abs(eclipse_phase - eclipse_epoch):
-            self.observation_type = 'transit'
-            self.epoch = transit_epoch
+            self.dict['model_info']['observation_type'] = 'transit'
+            self.dict['model_info']['epoch'] = transit_epoch
         else:
-            self.observation_type = 'eclipse'
-            self.epoch = eclipse_epoch
+            self.dict['model_info']['observation_type'] = 'eclipse'
+            self.dict['model_info']['epoch'] = eclipse_epoch
             self.dict['model_info']['fp_over_fs'] = planet.fp_over_fs(
                 self.dict['original_data']['filter_name'], self.dict['original_data']['wlrange'])
 
-        self.dict['model_info']['observation_type'] = self.observation_type
-        self.dict['model_info']['epoch'] = self.epoch
-
-        self.time_factor = int(self.dict['original_data']['exp_time'] / self.max_sub_exp_time) + 1
-        self.exp_time_h = self.dict['original_data']['exp_time'] / (60.0 * 60.0 * 24.0)
+        self.time_factor = int(self.dict['original_data']['exp_time'] / self.dict['model_info']['max_sub_exp_time']) + 1
 
         self.series_length = len(time)
         self.time_hr = (time[:, None] + np.arange(
@@ -233,34 +256,31 @@ class Observation:
         # setup de-trending
         if not self.dict['original_data']['trend_function']:
 
-            detrending_names = [ff for ff in self.dict['original_data']['detrending_series']]
+            self.detrending = {ff: (self.dict['input_series'][ff] - np.min(self.dict['input_series'][ff]))/
+                                   (np.max(self.dict['input_series'][ff]) - np.min(self.dict['input_series'][ff]))
+                               for ff in self.dict['original_data']['detrending_series']}
 
-            detrending_series = [self.dict['input_series'][ff] - np.min(self.dict['input_series'][ff]) for ff in detrending_names]
+            self.number_of_detrending_parameters = 1
+            self.names = ['n']
+            self.print_names = ['n']
+            self.limits1 = [0]
+            self.limits2 = [2]
+            self.initial = [1]
+            self.logspace = [True]
 
-            detrending_names.append('???')
-            detrending_series.append(np.ones_like(detrending_series[0]))
+            for detrending_series_id in self.detrending:
 
-            detrending_names = np.array(detrending_names)
-            detrending_series = np.array(detrending_series)
+                pp = self.dict['original_data']['detrending_order'][detrending_series_id]
 
-            combinations = list(itertools.combinations_with_replacement(np.arange(len(detrending_series)),
-                                                                        self.dict['original_data']['detrending_order']))
-            detrending_names = detrending_names[(combinations,)]
-            detrending_series = np.prod(detrending_series[(combinations,)], 1)
-            detrending_names = detrending_names[np.where(np.sum((detrending_series - 1) ** 2, 1) != 0)]
-            detrending_series = detrending_series[np.where(np.sum((detrending_series - 1) ** 2, 1) != 0)]
-
-            self.detrending = detrending_series
-            self.number_of_detrending_parameters = 1 + len(detrending_series)
-            self.names = ['n'] + ['_'.join(ff).replace('_???', '') for ff in detrending_names]
-            self.print_names = ['n'] + ['-'.join(ff).replace('-???', '') for ff in detrending_names]
-            self.limits1 = [0] + [-2 for ff in range(len(detrending_series))]
-            self.limits2 = [2] + [2 for ff in range(len(detrending_series))]
-            self.initial = [1] + [0 for ff in range(len(detrending_series))]
-            self.logspace = [True] + [False for ff in range(len(detrending_series))]
+                self.number_of_detrending_parameters += pp
+                self.names += ['{0}_{1}'.format(detrending_series_id, ff + 1) for ff in range(pp)]
+                self.print_names += ['{0}_{1}'.format(detrending_series_id, ff + 1) for ff in range(pp)]
+                self.limits1 += [-2 for ff in range(pp)]
+                self.limits2 += [2 for ff in range(pp)]
+                self.initial += [0 for ff in range(pp)]
+                self.logspace += [False for ff in range(pp)]
 
         else:
-            self.detrending = None
 
             self.number_of_detrending_parameters = len(str(signature(
                 self.dict['original_data']['trend_function']))[1:-1].split(','))
@@ -275,7 +295,7 @@ class Observation:
         # adjust normalisation factor
         df = max(np.median(flux) - np.min(flux), np.max(flux) - np.median(flux))
         self.initial[0] = np.median(flux)
-        self.limits1[0] =  max(10**-10, np.min(flux) - 2 * df)
+        self.limits1[0] = max(10**-10, np.min(flux) - 2 * df)
         self.limits2[0] = np.max(flux) + 2 * df
 
     def add_to_parameters_map(self, idx):
@@ -284,14 +304,16 @@ class Observation:
     def clear_outliers(self):
 
         if self.detrending is not None:
-            self.detrending = self.detrending[:, self.non_outliers_map]
+            self.detrending = {ff:self.detrending[ff][self.non_outliers_map] for ff in self.detrending}
 
-        self.dict['input_series'] = {ff:self.dict['input_series'][ff][self.non_outliers_map]
+        self.dict['input_series'] = {ff: self.dict['input_series'][ff][self.non_outliers_map]
                                      for ff in self.dict['input_series']}
 
         self.series_length = len(self.dict['input_series']['time'])
         self.time_hr = (self.dict['input_series']['time'][:, None] + np.arange(
-            -self.exp_time_h / 2 + self.exp_time_h / self.time_factor / 2, self.exp_time_h / 2, self.exp_time_h / self.time_factor
+            -self.exp_time_h / 2 + self.exp_time_h / self.time_factor / 2,
+            self.exp_time_h / 2,
+            self.exp_time_h / self.time_factor
         )).flatten()
 
     def _signal_model(self, parameters):
@@ -299,18 +321,28 @@ class Observation:
             ldc1, ldc2, ldc3, ldc4, r, p, a, e, i, w, mt = parameters
             return np.mean(np.reshape(
                 transit([ldc1, ldc2, ldc3, ldc4], r, p, a, e, i, w, mt, self.time_hr,
-                        ldc_method=self.ldc_method, precision=self.precision),
+                        ldc_method=self.dict['model_info']['ldc_method'],
+                        precision=self.dict['model_info']['precision']),
                 (self.series_length, self.time_factor)), 1)
 
         elif self.dict['model_info']['observation_type'] == 'eclipse':
             d, r, p, a, e, i, w, mt = parameters
             return np.mean(np.reshape(
-                eclipse(d, r, p, a, e, i, w, mt, self.time_hr, precision=self.precision),
+                eclipse(d, r, p, a, e, i, w, mt, self.time_hr, precision=self.dict['model_info']['precision']),
                 (self.series_length, self.time_factor)), 1)
 
     def _trend_model(self, parameters):
         if not self.dict['original_data']['trend_function']:
-            return 1 + np.sum(self.detrending * np.array(parameters)[:, None], 0)
+            trend = np.ones_like(self.dict['input_series']['time'])
+
+            parameter_count = 0
+            for detrending_series_id in self.detrending:
+                pp = [1] + [parameters[parameter_count + ff]
+                            for ff in range(self.dict['original_data']['detrending_order'][detrending_series_id])]
+                trend *= np.poly1d(pp[::-1])(self.detrending[detrending_series_id])
+                parameter_count += self.dict['original_data']['detrending_order'][detrending_series_id]
+
+            return trend
         else:
             return self.dict['original_data']['trend_function'](self.dict['input_series'], *parameters)
 
@@ -546,8 +578,8 @@ class Planet:
 
         unique_epochs = []
         for observation in self.observations:
-            if observation.epoch not in unique_epochs:
-                unique_epochs.append(observation.epoch)
+            if observation.dict['model_info']['epoch'] not in unique_epochs:
+                unique_epochs.append(observation.dict['model_info']['epoch'])
 
         if len(unique_epochs) == 1:
             fit_individual_times = False
@@ -669,7 +701,7 @@ class Planet:
 
             for observation in self.observations:
                 test_epochs = np.append(test_epochs,
-                                        np.ones_like(observation.dict['input_series']['flux_unc']) * observation.epoch)
+                                        np.ones_like(observation.dict['input_series']['flux_unc']) * observation.dict['model_info']['epoch'])
                 norm_errors = observation.dict['input_series']['flux_unc'] / observation.dict['input_series']['flux']
                 test_epochs_weights = np.append(test_epochs_weights, 1 / (norm_errors * norm_errors))
 
@@ -711,7 +743,7 @@ class Planet:
                 logspace.append(False)
 
                 for observation in self.observations:
-                    if observation.epoch == epoch:
+                    if observation.dict['model_info']['epoch'] == epoch:
                         observation.add_to_parameters_map(len(names) - 1)
 
         initial = np.array(initial)
@@ -732,7 +764,7 @@ class Planet:
                               single_observation_full_model, initial, limits1, limits2,
                               logspace=logspace,
                               data_x_name='time', data_y_name='flux',
-                              data_x_print_name='t_{BJD_{TDB}}', data_y_print_name='Relative Flux',
+                              data_x_print_name=r'Time (days, BJD$_\mathrm{TDB})', data_y_print_name='Relative Flux',
                               parameters_names=names, parameters_print_names=print_names,
                               walkers=walkers, iterations=iterations, burn_in=burn_in,
                               counter=counter,
@@ -759,7 +791,7 @@ class Planet:
             print()
             print('Observation: ', observation.obs_id)
             print('Filter: ', observation.filter_id)
-            print('Epoch: ', observation.epoch)
+            print('Epoch: ', observation.dict['model_info']['epoch'])
             print('Data-points excluded: ', len(np.where(fitting.results['prefit']['outliers_map'])[0]))
             print('Scaling uncertainties by: ', fitting.results['prefit']['scale_factor'])
 
@@ -789,7 +821,7 @@ class Planet:
                           full_model, initial, limits1, limits2,
                           logspace=logspace,
                           data_x_name='time', data_y_name='flux',
-                          data_x_print_name='t_{BJD_{TDB}}', data_y_print_name='Relative Flux',
+                          data_x_print_name=r'Time (days, BJD$_\mathrm{TDB})', data_y_print_name='Relative Flux',
                           parameters_names=names, parameters_print_names=print_names,
                           walkers=walkers, iterations=iterations, burn_in=burn_in,
                           counter=counter,
@@ -817,7 +849,7 @@ class Planet:
             'filter_outliers': filter_outliers,
             'optimiser': optimiser,
             'data_x_name': 'time',
-            'data_x_print_name': 't_{BJD_{TDB}}',
+            'data_x_print_name': r'Time (days, BJD$_\mathrm{TDB})',
             'data_y_name': 'flux',
             'data_y_print_name': 'Relative Flux',
             'fit_ldc1': fit_ldc1,
@@ -961,7 +993,7 @@ class Planet:
 
                 lines.append('')
                 lines.append('#Filter: {0}'.format(observation.filter_id))
-                lines.append('#Epoch: {0}'.format(observation.epoch))
+                lines.append('#Epoch: {0}'.format(observation.dict['model_info']['epoch']))
                 lines.append('#Number of outliers removed: {0}'.format(observation.dict['data_conversion_info']['outliers']))
                 lines.append('#Uncertainties scale factor: {0}'.format(observation.dict['data_conversion_info']['scale_factor']))
 
@@ -1015,8 +1047,8 @@ class Planet:
                         fit_mid_time=True, fit_period=False,
                         fit_individual_times=True,
 
-                        fit_rp_over_rs_limits=[0.001, 1000],
-                        fit_fp_over_fs_limits=[0.001, 1000],
+                        fit_rp_over_rs_limits=[0.1, 10],
+                        fit_fp_over_fs_limits=[0.1, 10],
                         fit_sma_over_rs_limits=[0.001, 1000],
                         fit_inclination_limits=[10.0, 90.0],
                         fit_mid_time_limits=[-0.2, 0.2],
@@ -1053,8 +1085,8 @@ class Planet:
 
         unique_epochs = []
         for observation in self.observations:
-            if observation.epoch not in unique_epochs:
-                unique_epochs.append(observation.epoch)
+            if observation.dict['model_info']['epoch'] not in unique_epochs:
+                unique_epochs.append(observation.dict['model_info']['epoch'])
 
         if len(unique_epochs) == 1:
             fit_individual_times = False
@@ -1172,7 +1204,7 @@ class Planet:
 
             for observation in self.observations:
                 test_epochs = np.append(test_epochs,
-                                        np.ones_like(observation.dict['input_series']['flux_unc']) * observation.epoch)
+                                        np.ones_like(observation.dict['input_series']['flux_unc']) * observation.dict['model_info']['epoch'])
                 norm_errors = observation.dict['input_series']['flux_unc'] / observation.dict['input_series']['flux']
                 test_epochs_weights = np.append(test_epochs_weights, 1 / (norm_errors * norm_errors))
 
@@ -1215,7 +1247,7 @@ class Planet:
                 logspace.append(False)
 
                 for observation in self.observations:
-                    if observation.epoch == epoch:
+                    if observation.dict['model_info']['epoch'] == epoch:
                         observation.add_to_parameters_map(len(names) - 1)
 
         initial = np.array(initial)
@@ -1236,7 +1268,7 @@ class Planet:
                               single_observation_full_model, initial, limits1, limits2,
                               logspace=logspace,
                               data_x_name='time', data_y_name='flux',
-                              data_x_print_name='t_{BJD_{TDB}}', data_y_print_name='Relative Flux',
+                              data_x_print_name=r'Time (days, BJD$_\mathrm{TDB})', data_y_print_name='Relative Flux',
                               parameters_names=names, parameters_print_names=print_names,
                               walkers=walkers, iterations=iterations, burn_in=burn_in,
                               counter=counter,
@@ -1263,7 +1295,7 @@ class Planet:
             print()
             print('Observation: ', observation.obs_id)
             print('Filter: ', observation.filter_id)
-            print('Epoch: ', observation.epoch)
+            print('Epoch: ', observation.dict['model_info']['epoch'])
             print('Data-points excluded: ', len(np.where(fitting.results['prefit']['outliers_map'])[0]))
             print('Scaling uncertainties by: ', fitting.results['prefit']['scale_factor'])
 
@@ -1292,7 +1324,7 @@ class Planet:
         fitting = Fitting(model_time, model_flux, model_flux_unc,
                           full_model, initial, limits1, limits2,
                           data_x_name='time', data_y_name='flux',
-                          data_x_print_name='t_{BJD_{TDB}}', data_y_print_name='Relative Flux',
+                          data_x_print_name=r'Time (days, BJD$_\mathrm{TDB})', data_y_print_name='Relative Flux',
                           parameters_names=names, parameters_print_names=print_names,
                           walkers=walkers, iterations=iterations, burn_in=burn_in,
                           counter=counter,
@@ -1320,7 +1352,7 @@ class Planet:
             'filter_outliers': filter_outliers,
             'optimiser': optimiser,
             'data_x_name': 'time',
-            'data_x_print_name': 't_{BJD_{TDB}}',
+            'data_x_print_name': r'Time (days, BJD$_\mathrm{TDB})',
             'data_y_name': 'flux',
             'data_y_print_name': 'Relative Flux',
             'fit_individual_fp_over_fs': fit_individual_fp_over_fs,
@@ -1462,7 +1494,7 @@ class Planet:
 
                 lines.append('')
                 lines.append('#Filter: {0}'.format(observation.filter_id))
-                lines.append('#Epoch: {0}'.format(observation.epoch))
+                lines.append('#Epoch: {0}'.format(observation.dict['model_info']['epoch']))
                 lines.append('#Number of outliers removed: {0}'.format(observation.dict['data_conversion_info']['outliers']))
                 lines.append('#Uncertainties scale factor: {0}'.format(observation.dict['data_conversion_info']['scale_factor']))
 
