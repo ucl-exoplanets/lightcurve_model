@@ -56,8 +56,11 @@ Please check the "notebooks" directory for usage examples and explanations.
 
 - Check notebook "1_the_planet_class" for easy access to planet parameters, 
 properties and calculations.
+  
+- Check notebook "2_lightcurve_fitting" for instructions on how to fit your 
+  light-curves and on how to read the fiiting output.
 
-- Check the notebooks under the "notebooks/2_detrending_examples" directory 
+- Check the notebooks under the "notebooks/detrending_examples" directory
   to see how to model your light-curves.
 
 - Check the notebook "3_core_calculations" for higher efficiency 
@@ -101,7 +104,7 @@ Please pay extra care when accessing the fitting output, almost all parameter na
 
 - New structure for fitting output
 
-Please check the notebook ```notebooks/2_detrending_examples/0_a_simple_lc_fitting.ipynb``` to see the structure of the fitting output.
+Please check the notebook ```notebooks/2_lightcurve_fitting.ipynb``` to see the structure of the fitting output.
 
 - New way of accessing the LDCs and the Fp/Fs in the planet class
 
